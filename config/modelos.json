@@ -1,0 +1,49 @@
+{
+  "models": [
+    {
+      "id": "whisper-base",
+      "file": "whisper/ggml-base.bin",
+      "url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin",
+      "sha256": "60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe",
+      "size": 147951465,
+      "required": true,
+      "variant": "desktop"
+    },
+    {
+      "id": "whisper-tiny",
+      "file": "whisper/ggml-tiny.bin",
+      "url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin",
+      "sha256": "be07e048e1e599ad46341c8d2a135645097a538221678b7acdd1b1919c6e1b21",
+      "size": 77691713,
+      "required": false,
+      "variant": "desktop"
+    },
+    {
+      "id": "piper-es-voz",
+      "file": "piper/es_ES-sharvard-medium.onnx",
+      "url": "https://huggingface.co/rhasspy/piper-voices/resolve/main/es/es_ES/sharvard/medium/es_ES-sharvard-medium.onnx?download=true",
+      "sha256": "40febfb1679c69a4505ff311dc136e121e3419a13a290ef264fdf43ddedd0fb1",
+      "size": 76733615,
+      "required": true,
+      "variant": "desktop"
+    },
+    {
+      "id": "piper-es-voz-config",
+      "file": "piper/es_ES-sharvard-medium.onnx.json",
+      "url": "https://huggingface.co/rhasspy/piper-voices/resolve/main/es/es_ES/sharvard/medium/es_ES-sharvard-medium.onnx.json?download=true",
+      "sha256": "7438c9b699c72b0c3388dae1b68d3f364dc66a2150fe554a1c11f03372957b2c",
+      "size": 4903,
+      "required": true,
+      "variant": "desktop"
+    },
+    {
+      "id": "yolo11n",
+      "file": "yolo/yolo11n.pt",
+      "url": "https://github.com/ultralytics/assets/releases/download/v8.4.0/yolo11n.pt",
+      "sha256": "0ebbc80d4a7680d14987a577cd21342b65ecfd94632bd9a8da63ae6417644ee1",
+      "size": 5613764,
+      "required": true,
+      "variant": "desktop"
+    }
+  ]
+}
