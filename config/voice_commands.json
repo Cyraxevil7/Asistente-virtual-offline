@@ -1,0 +1,50 @@
+{
+  "open_camera": {
+    "description": "abrir la cámara",
+    "phrases": [
+      "que ves",
+      "que es lo que ves",
+      "que puedes ver",
+      "que objetos ves",
+      "que objeto ves",
+      "dime que ves",
+      "muestrame que ves",
+      "que hay aqui",
+      "que hay ahi",
+      "que hay frente a mi",
+      "que veo enfrente",
+      "que tengo delante",
+      "que tengo enfrente",
+      "que tengo en frente",
+      "que tengo frente a mi",
+      "que tienes delante",
+      "que hay delante",
+      "que hay enfrente",
+      "que ves delante",
+      "que ves enfrente",
+      "que ves en frente",
+      "mira que hay",
+      "dime que hay",
+      "que detectas",
+      "que tengo adelante",
+      "abrir camara",
+      "iniciar camara"
+    ]
+  },
+  "close_camera": {
+    "description": "cerrar la cámara",
+    "phrases": [
+      "cerrar camara",
+      "de ten la camara",
+      "cerrar la camara",
+      "cierra camara",
+      "cierra la camara",
+      "apaga la camara",
+      "apaga camara",
+      "deten la camara",
+      "detener la camara",
+      "para la camara",
+      "desactiva la camara"
+    ]
+  }
+}
