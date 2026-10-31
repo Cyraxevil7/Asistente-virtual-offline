@@ -16,7 +16,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import Protocol
 
-from clases.contratos import CommandCandidate, CommandMatcher, DetectionListener
+from clases.contratos import (
+    CommandCandidate,
+    CommandMatcher,
+    DetectionListener,
+    IntentResolver,
+)
 from clases.deteccion import DetectionEvent
 from clases.enrutador_comandos import (
     COMMAND_SIMILARITY_THRESHOLD,
@@ -384,13 +389,20 @@ class VoiceAssistant(DetectionListener):
         command_phrases_path: str | Path = DEFAULT_COMMAND_PHRASES_PATH,
         command_handlers: Mapping[str, Callable[[], None]] | None = None,
         command_matcher: CommandMatcher | None = None,
+        intent_resolver: IntentResolver | None = None,
     ) -> None:
+        """Configura el matcher actual y conserva un resolvedor futuro opcional.
+
+        El resolvedor inyectado no altera el enrutamiento existente: las órdenes
+        siguen siendo procesadas por CommandMatcher hasta implementar esa etapa.
+        """
         if announcement_interval <= 0:
             raise ValueError("El intervalo de anuncios debe ser mayor que cero.")
         self._command_matcher = command_matcher or RapidFuzzCommandMatcher(
             command_phrases_path,
             similarity_threshold=COMMAND_SIMILARITY_THRESHOLD,
         )
+        self._intent_resolver = intent_resolver
         self._recognizer = recognizer
         self._speech_output = speech_output
         self._on_camera_command = on_camera_command

@@ -69,6 +69,22 @@ class CommandMatcher(Protocol):
         """Devuelve candidatas que superen el umbral de similitud."""
 
 
+@dataclass(frozen=True, slots=True)
+class IntentResult:
+    """Resultado futuro de resolver una intención y sus parámetros."""
+
+    intent_id: str
+    parameters: Mapping[str, object]
+    confidence: float
+
+
+class IntentResolver(Protocol):
+    """Contrato para comprender instrucciones más allá de frases configuradas."""
+
+    def resolve(self, text: str) -> IntentResult:
+        """Asocia texto libre con una intención, parámetros y confianza."""
+
+
 class Display(Protocol):
     """Interfaz de visualización intercambiable."""
 

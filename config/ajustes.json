@@ -1,0 +1,8 @@
+{
+  "whisper_model_id": "whisper-base",
+  "camera_frames_per_second": 3,
+  "detection_interval_seconds": 2,
+  "announcement_interval_seconds": 5,
+  "yolo_confidence_threshold": 0.25,
+  "command_similarity_threshold": 80
+}

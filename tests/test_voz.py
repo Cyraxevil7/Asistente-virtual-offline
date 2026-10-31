@@ -17,6 +17,7 @@ from clases.controlador_voz import (
     VoiceAssistant,
     WhisperCppCommandRecognizer,
 )
+from clases.contratos import IntentResult
 from clases.deteccion import BoundingBox, DetectedObject, DetectionEvent
 from clases.entrada_teclado import PushToTalkKeyboard
 
@@ -46,6 +47,11 @@ class FakeSpeechOutput:
 
     def speak(self, text: str) -> None:
         self.messages.append(text)
+
+
+class FakeIntentResolver:
+    def resolve(self, text: str) -> IntentResult:
+        return IntentResult("unresolved", {"text": text}, 0.0)
 
 
 def make_event(*labels: str) -> DetectionEvent:
@@ -119,6 +125,21 @@ class VoiceAssistantTests(unittest.TestCase):
 
         self.assertEqual(commands, ["open", "close"])
         self.assertEqual(self.speech_output.messages, [])
+
+    def test_injected_intent_resolver_does_not_change_default_command_routing(self) -> None:
+        commands: list[str] = []
+        resolver = FakeIntentResolver()
+        assistant = VoiceAssistant(
+            FakeRecognizer(),
+            self.speech_output,
+            on_camera_command=commands.append,
+            intent_resolver=resolver,
+        )
+
+        assistant._handle_transcript("¿Qué ves?")
+
+        self.assertIs(assistant._intent_resolver, resolver)
+        self.assertEqual(commands, ["open"])
 
     def test_keeps_the_existing_transcription_workaround_phrase(self) -> None:
         commands: list[str] = []
