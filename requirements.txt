@@ -1,0 +1,8 @@
+# Dependencias Python directas; el modo de voz requiere también pynput, arecord,
+# aplay y whisper-server. Consulta README.md para la configuración del sistema.
+numpy>=1.23.0
+opencv-python>=4.8.0
+piper-tts>=1.8.0,<2
+pynput>=1.7.7,<2
+rapidfuzz>=3.0,<4
+ultralytics>=8.3.0
