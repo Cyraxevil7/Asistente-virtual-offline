@@ -4,12 +4,13 @@ El punto de entrada es [`main.py`](../main.py). Mantiene el flujo de arranque y 
 
 ## Inicio
 
-1. Crea Whisper y el reconocedor local.
-2. Inicia el asistente de voz y el listener global de teclado; la cámara queda cerrada y no se graba audio.
-3. Al mantener `v`, se captura voz. Al soltarla, Whisper transcribe el audio completo y el texto se muestra en la terminal.
-4. Espera órdenes de cámara en una cola entre el worker de transcripción y el hilo principal.
+1. Carga los ajustes de `config/ajustes.json` y valida `config/modelos.json`.
+2. Prepara Piper primero; si faltan otros modelos requeridos, descarga y anuncia el progreso con esa voz.
+3. Inicia Whisper y el listener global de teclado; la cámara queda cerrada y no se graba audio.
+4. Al mantener `v`, se captura voz. Al soltarla, Whisper transcribe el audio completo y el texto se muestra en la terminal.
+5. Espera órdenes de cámara en una cola entre el worker de transcripción y el hilo principal.
 
-YOLO y OpenCV se crean dentro de la rama que procesa la orden de apertura, de modo que no se carga el modelo visual ni se abre la cámara mientras el usuario solo está probando el micrófono.
+YOLO y OpenCV se importan dentro de la rama que procesa la orden de apertura, de modo que ni esos paquetes ni el modelo visual se cargan mientras el usuario solo está probando el micrófono.
 
 ## Ciclo de vida
 
@@ -19,6 +20,8 @@ YOLO y OpenCV se crean dentro de la rama que procesa la orden de apertura, de mo
 - Después del cierre, la escucha de voz continúa. El evento JSON de cada detección se imprime en la terminal.
 - Al interrumpir la aplicación, el bloque `finally` detiene Whisper y los workers de voz.
 
-Las rutas de modelos y las tasas predeterminadas se definen junto al punto de entrada. La captura de cámara solicita 3 FPS, la inferencia ocurre cada dos segundos y el anuncio hablado se repite cada cinco segundos. La detección global de teclas usa `pynput` y requiere una sesión gráfica X11 compatible.
+Las tasas y los umbrales se configuran en `config/ajustes.json`; las rutas de archivos se resuelven desde `config/modelos.json` mediante `ModelManager`. La captura solicita 3 FPS, la inferencia ocurre cada dos segundos y el anuncio hablado se repite cada cinco segundos. La detección global de teclas usa `pynput` y requiere una sesión gráfica X11 compatible.
 
-Para ejecutar: `python main.py`. Dependencias y construcción de `whisper-server`: [README.md](../README.md).
+Los archivos se buscan primero en el directorio de datos del usuario; `ASISTENTE_MODELS_DIR` permite seleccionar otro. Durante desarrollo se mantiene compatibilidad con los modelos ya existentes bajo `modelos/`. El servidor Whisper se busca en `vendor/whisper.cpp/build/bin/whisper-server` y después en la ruta local previa; `ASISTENTE_WHISPER_SERVER` permite indicar otra ubicación.
+
+Para instalar modelos: `python scripts/descargar_modelos.py`. Para ejecutar: `python main.py`. Construcción de `whisper-server`: `bash scripts/construir_whisper.sh`. La guía de rutas y descargas está en [gestión de modelos](./modelos.md).

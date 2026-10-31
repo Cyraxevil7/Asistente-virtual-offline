@@ -4,7 +4,7 @@
 
 ## Modelo y entrada
 
-El controlador comprueba la ruta local del modelo y el umbral de confianza antes de cargar YOLO. El punto de entrada configura `modelos/yolo11n.pt` y el umbral predeterminado es `0.25`. El modelo se instancia de forma diferida: no se carga hasta que la orden de voz abre la sesión de visión.
+El modelo `yolo11n` se declara en `config/modelos.json`; `ModelManager` resuelve la ruta y valida tamaño/hash al descargarlo. `config/ajustes.json` conserva el umbral de confianza predeterminado `0.25`. YOLO y OpenCV se importan y el modelo se instancia de forma diferida: no se cargan hasta que la orden de voz abre la sesión de visión.
 
 ## Inferencia y salida
 

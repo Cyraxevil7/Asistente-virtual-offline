@@ -15,6 +15,7 @@ El asistente espera la tecla `v`: mantenla pulsada para grabar y suéltala para 
 - Transcripción local en español, iniciada al mantener `v` y enviada al soltarla.
 - Reconocimiento tolerante a errores con RapidFuzz: umbral del 80%, confirmación de coincidencias aproximadas y aclaración de órdenes ambiguas.
 - La cámara solo se abre al reconocer una petición para ver; YOLO también se carga de forma diferida en ese momento.
+- Los modelos se descargan y verifican con SHA256 desde un manifiesto; los binarios y pesos no se versionan en Git.
 - Anuncios hablados con los nombres de los objetos detectados, repetidos cada cinco segundos.
 - Cierre por voz con variantes de «cerrar cámara» o con la tecla `q`; el asistente permanece en modo de escucha.
 - Liberación de cámara y ventana al finalizar el ciclo, incluso cuando un componente falla.
@@ -24,48 +25,28 @@ El FPS configurado es una solicitud al controlador; algunas cámaras pueden igno
 
 ## Requisitos
 
-- Python 3.10 o posterior (el entorno actual usa Python 3.12).
+- Python 3.10 o posterior.
 - Cámara compatible con OpenCV para ejecutar la vista en vivo.
 - Micrófono y `arecord` (ALSA) para transcribir voz en Linux.
-- Sesión gráfica X11 para detectar globalmente la pulsación y liberación de `v` con `pynput`.
-- `aplay` (ALSA) para reproducir las respuestas generadas por Piper en Linux.
-- El runtime Piper (`piper-tts`) y una voz española `.onnx` con su configuración `.onnx.json`.
-- `whisper-server` de whisper.cpp y un modelo GGML multilingüe para reconocer comandos localmente.
-- Dependencias de `requirements.txt`.
-- RapidFuzz, instalado junto con las demás dependencias para comparar transcripciones con las frases configuradas.
-- Pesos YOLO disponibles en `modelos/` para inferencia local. El repositorio de trabajo incluye `modelos/yolo11n.pt` y `modelos/yolo26n.pt`.
-
-La voz española usada por defecto es `es_ES-sharvard-medium`, guardada en `modelos/voces/`. Si no tienes sus archivos, instálalos desde el entorno virtual con:
-
-```bash
-python -m piper.download_voices --download-dir modelos/voces es_ES-sharvard-medium
-```
-
-La ejecución de la cámara requiere un entorno con soporte de ventana gráfica. Para usar GPU, instala una versión de PyTorch compatible con tu hardware y CUDA; en CPU, Ultralytics puede ejecutarse sin configurar CUDA.
+- Sesión gráfica X11 para detectar globalmente `v` con `pynput`.
+- `aplay` (ALSA) para reproducir Piper en Linux.
+- Git, CMake y compilador C/C++ para construir `whisper-server`.
+- Cámara y micrófono no son necesarios para ejecutar las pruebas simuladas.
 
 ## Instalación
 
-Desde la raíz del proyecto, crea y activa un entorno virtual:
+Instalación básica en cuatro comandos desde una terminal compatible con Bash:
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-```
-
-En Windows PowerShell, activa el entorno con:
-
-```powershell
-.venv\Scripts\Activate.ps1
-```
-
-Instala las dependencias:
-
-```bash
-python -m pip install --upgrade pip
+git clone https://github.com/Cyraxevil7/Asistente-virtual-offline.git && cd Asistente-virtual-offline
+python3 -m venv .venv && source .venv/bin/activate
 python -m pip install -r requirements.txt
+python scripts/descargar_modelos.py
 ```
 
-En Linux quizá sea necesario instalar paquetes del sistema para OpenCV o soporte gráfico, dependiendo de la distribución. Para aceleración GPU, consulta las instrucciones oficiales de PyTorch para elegir la compilación apropiada.
+En Windows PowerShell, crea y activa el entorno con `py -m venv .venv` y `.venv\Scripts\Activate.ps1`; instala las mismas dependencias y ejecuta el script desde ese entorno.
+
+En Linux pueden ser necesarias bibliotecas del sistema para OpenCV/GUI. `pynput` requiere una sesión gráfica X11 compatible para recibir la tecla global `v`.
 
 ## Ejecutar el asistente
 
@@ -73,11 +54,13 @@ En Linux quizá sea necesario instalar paquetes del sistema para OpenCV o soport
 python main.py
 ```
 
-Al iniciar, el programa levanta Whisper localmente pero no empieza a grabar. Mantén pulsada `v` mientras dices una frase y suéltala cuando termines; entonces el audio completo se transcribe y el resultado aparece en la terminal. Puedes hacerlo antes o durante la sesión de cámara. Di «¿qué ves?», «¿qué hay delante?» o «¿qué detectas?» para abrirla. La tasa solicitada es 3 FPS; el modelo hace inferencias cada 2 segundos.
+Al iniciar, la aplicación comprueba los modelos y, si falta alguno, prepara primero Piper para anunciar por voz las descargas siguientes. Si Piper todavía no está disponible, informa por terminal y usa `espeak-ng`/`espeak` solo si ya están instalados. Después inicia Whisper localmente, pero no empieza a grabar. Mantén pulsada `v` mientras dices una frase y suéltala para transcribirla. Di «¿qué ves?», «¿qué hay delante?» o «¿qué detectas?» para abrir la cámara. La tasa sigue en 3 FPS y YOLO infiere cada 2 segundos.
 
 Di «cerrar cámara», «cierra la cámara», «apaga la cámara» o «detén la cámara» mientras mantienes `v` para cerrarla. También puedes pulsar `q` en la ventana. Después del cierre, el programa espera otra pulsación de `v`; no mantiene el micrófono grabando. Los eventos JSON siguen apareciendo en la terminal. En Linux sin activar el entorno virtual también se puede usar `.venv/bin/python main.py`.
 
-Las constantes `CAMERA_FRAMES_PER_SECOND`, `DETECTION_INTERVAL_SECONDS`, `MODEL_PATH` y `WHISPER_MODEL_PATH` en `main.py` configuran la tasa de lectura, el intervalo de inferencia, el modelo visual y el modelo de voz, respectivamente. Para cambiar Whisper, modifica `WHISPER_MODEL_PATH` y apunta a otro archivo GGML compatible, por ejemplo `modelos/ggml-small.bin`; el idioma de transcripción se fija por separado en `clases/controlador_voz.py` con `language=es`. Las frases que activan y cierran la cámara se editan en `config/voice_commands.json`, agrupadas por intención; no hace falta modificar código Python para ajustar sus variantes. El matcher RapidFuzz está en `clases/enrutador_comandos.py`, y el umbral usado por el asistente se fija en `COMMAND_SIMILARITY_THRESHOLD` (80%). El margen de ambigüedad predeterminado es de cinco puntos. El umbral de confianza visual predeterminado está en `YOLOModelController` (`0.25`).
+Los valores de cámara, intervalos y umbrales están en `config/ajustes.json`; los metadatos de modelos están en `config/modelos.json`. `whisper_model_id` permite seleccionar `whisper-base` o `whisper-tiny`; el idioma se fija en `clases/controlador_voz.py` como español (`language=es`). Para descargar la alternativa opcional: `python scripts/descargar_modelos.py --solo whisper-tiny`. `ModelManager` obtiene rutas por ID y guarda los archivos fuera del repositorio en el directorio de datos del usuario. La variable `ASISTENTE_MODELS_DIR` cambia ese directorio. En desarrollo sigue reconociendo el layout anterior local en `modelos/`. Para indicar otro `whisper-server`, define `ASISTENTE_WHISPER_SERVER`.
+
+Las frases se editan en `config/voice_commands.json`. RapidFuzz conserva el umbral predeterminado del 80% y el margen de ambigüedad de cinco puntos. El umbral visual predeterminado sigue en 0.25.
 
 ### Añadir una orden de voz
 
@@ -96,31 +79,17 @@ assistant = VoiceAssistant(
 
 El identificador `new_command` debe existir también en el JSON. La validación del asistente informa si una orden configurada no tiene una acción registrada.
 
-### Dependencias de reconocimiento de voz
+### Servidor Whisper y salida Piper
 
-El directorio `modelos/ggml-org-whisper.cpp-d2a764c/` contiene el código fuente de whisper.cpp, pero sus archivos `for-tests-*.bin` son marcadores de prueba sin pesos reales. El modelo multilingüe `modelos/ggml-base.bin` y el ejecutable local `whisper-server` deben estar disponibles para usar voz.
-
-Para compilar whisper.cpp en Linux, se requieren CMake y un compilador C/C++:
+`whisper-server` es una herramienta de ejecución, no un modelo. Con Git, CMake y un compilador C/C++ instalados, constrúyelo en el directorio ignorado `vendor/`:
 
 ```bash
-python -m pip install cmake
-cmake -S modelos/ggml-org-whisper.cpp-d2a764c \
-  -B modelos/ggml-org-whisper.cpp-d2a764c/build \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DWHISPER_BUILD_TESTS=OFF \
-  -DWHISPER_BUILD_EXAMPLES=ON \
-  -DWHISPER_BUILD_SERVER=ON
-cmake --build modelos/ggml-org-whisper.cpp-d2a764c/build \
-  --config Release --target whisper-server -j2
+bash scripts/construir_whisper.sh
 ```
 
-Descarga el modelo base multilingüe (~142 MiB):
+Piper se instala como biblioteca Python mediante `requirements.txt`; sus pesos ONNX se descargan mediante el manifiesto. El script de compilación no descarga modelos.
 
-```bash
-bash modelos/ggml-org-whisper.cpp-d2a764c/models/download-ggml-model.sh base modelos
-```
-
-Whisper permanece cargado en un servidor local. Cada grabación empieza al pulsar `v` y termina al soltarla, así que no se corta por un límite fijo de tiempo. El texto reconocido se imprime en la terminal antes de procesar la orden.
+Whisper permanece cargado en un servidor local. Cada grabación empieza al pulsar `v` y termina al soltarla. El texto reconocido se imprime en la terminal antes de procesar la orden.
 
 Whisper reconoce voz y Piper genera el audio de respuesta; la voz se carga solo al iniciar el programa y se reproduce con `aplay`. Los anuncios usan el último evento de YOLO y solo incluyen nombres de objetos, sin confianza ni coordenadas.
 
@@ -140,10 +109,13 @@ La precisión depende del ruido, el micrófono y el tamaño del modelo. Si una o
 | `clases/controlador_voz.py` | Captura de audio con ALSA, transcripción con un servidor persistente whisper.cpp, gestión extensible de órdenes y síntesis local Piper. |
 | `clases/entrada_teclado.py` | Detecta la pulsación sostenida de `v` y activa el inicio/cierre de grabación. |
 | `clases/enrutador_comandos.py` | Normaliza y compara transcripciones con RapidFuzz; valida las definiciones de órdenes. |
+| `clases/gestor_modelos.py` | Valida el manifiesto, resuelve ubicaciones compatibles y descarga archivos con SHA256 y reemplazo atómico. |
 | `config/voice_commands.json` | Descripciones y frases editables para activar y cerrar la cámara por voz. |
-| `tests/test_vision.py` | Pruebas unitarias con dobles, sin necesidad de cámara física. |
-| `tests/test_voz.py` | Pruebas del formato de respuesta y de las llamadas a herramientas de audio simuladas. |
-| `modelos/` | Pesos YOLO locales. |
+| `config/modelos.json` | IDs, rutas relativas, fuentes, tamaños y SHA256 de cada modelo. |
+| `config/ajustes.json` | FPS, intervalos, umbrales y modelo Whisper activo. |
+| `scripts/` | Descarga/verificación de modelos, hashes, compilación Whisper y medición opcional de recursos. |
+| `vendor/` | Herramientas descargadas o compiladas; ignorado por Git. |
+| `modelos/` | Compatibilidad local de desarrollo; los modelos no se versionan. |
 
 Los protocolos desacoplan las implementaciones: se puede sustituir la cámara, el modelo o la pantalla sin cambiar el coordinador. El formato `DetectionEvent` sirve como contrato estable para añadir registro, almacenamiento o comunicación con otros módulos.
 
@@ -155,6 +127,8 @@ Documentación modular del código:
 - [Detector YOLO](./docs/detector.md)
 - [Coordinación del ciclo de visión](./docs/coordinador.md)
 - [Contratos y eventos](./docs/contratos.md)
+- [Gestión de modelos y herramientas](./docs/modelos.md)
+- [Medición de rendimiento](./docs/rendimiento.md)
 
 ## Integrar un consumidor (por ejemplo, audio)
 
@@ -188,13 +162,34 @@ La estructura de evento serializada incluye un instante UTC ISO 8601, dimensione
 
 ## Pruebas
 
-Ejecuta las pruebas desde la raíz:
+Instala el entorno de desarrollo y ejecuta las pruebas desde la raíz:
 
 ```bash
-python -m unittest discover -s tests -v
+python -m pip install -r requirements-dev.txt
+python -m pytest
 ```
 
-Las pruebas utilizan componentes simulados para verificar serialización, publicación y liberación de recursos. No comprueban la cámara física. La inferencia local puede probarse sin cámara con una imagen o un fotograma NumPy y `YOLOModelController`.
+Las pruebas usan componentes simulados para modelos y voz; no requieren descargar modelos ni disponer de cámara/micrófono. La inferencia local real puede probarse sin cámara con una imagen o un fotograma NumPy y `YOLOModelController`.
+
+## Limpieza manual del historial Git
+
+El commit de higiene deja de rastrear `modelos/` en la versión actual, pero no elimina los binarios grandes de los commits anteriores. Antes de subir la rama, la limpieza histórica debe hacerse manualmente. **No ejecutes estos comandos sin revisar el impacto, cerrar la aplicación y coordinarlo con quienes tengan clones del repositorio.** Haz primero una copia externa de los modelos y un bundle del historial:
+
+```bash
+cp -a modelos "$HOME/modelos-backup-$(date +%Y%m%d-%H%M%S)"
+git bundle create ../asistente-antes-de-filter-repo.bundle --all
+```
+
+Después de verificar ambas copias, estos son los comandos que reescriben el historial y actualizan GitHub. Se muestran como referencia; no forman parte de los scripts del proyecto:
+
+```bash
+git filter-repo --path modelos/ --invert-paths
+git remote add origin https://github.com/Cyraxevil7/Asistente-virtual-offline.git
+git push --force --all origin
+git push --force --tags origin
+```
+
+`git filter-repo` elimina `modelos/` de todos los commits alcanzados por las referencias que reescribe. `push --force` reemplaza el historial remoto; los colaboradores necesitarán volver a clonar o sincronizar cuidadosamente sus ramas. Los archivos locales no se borran con la exclusión de Git ni con el commit que los retiró del índice.
 
 ## Scripts experimentales existentes
 
@@ -207,7 +202,7 @@ Las pruebas utilizan componentes simulados para verificar serialización, public
 1. Definir un módulo de registro persistente para eventos y rotación de archivos.
 2. Incorporar una cola o bus de eventos para desacoplar consumidores lentos.
 3. Mejorar la detección de preguntas y añadir comandos adicionales de voz.
-4. Añadir configuración externa para cámara, modelos y umbrales.
+4. Completar la integración de `IntentResolver` cuando se definan intenciones y parámetros.
 5. Ampliar pruebas con grabaciones de voz de prueba y manejo de errores de hardware.
 
 El resumen del ciclo de cámara está en [DETECCION_CAMARA.md](./DETECCION_CAMARA.md). La documentación modular detallada está en `docs/`.

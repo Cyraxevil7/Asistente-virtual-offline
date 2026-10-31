@@ -4,7 +4,7 @@ La implementación está en [`clases/controlador_voz.py`](../clases/controlador_
 
 ## Selección de modelo e idioma
 
-La ruta del modelo activo se configura con `WHISPER_MODEL_PATH` en [`main.py`](../main.py); actualmente apunta a `modelos/ggml-base.bin`. Para cambiar el tamaño, descarga otro modelo GGML compatible y modifica esa constante para que apunte al archivo elegido. El reconocimiento solicita español mediante el campo `language=es` que `WhisperCppCommandRecognizer` envía al servidor en [`clases/controlador_voz.py`](../clases/controlador_voz.py).
+El modelo se selecciona mediante `whisper_model_id` en `config/ajustes.json` (por defecto `whisper-base`; `whisper-tiny` es la alternativa ligera). Sus URL, tamaños y SHA256 están en `config/modelos.json`. Los archivos se guardan fuera del repositorio por defecto, bajo el directorio de datos del usuario; `ASISTENTE_MODELS_DIR` permite cambiarlo. En desarrollo, `ModelManager` reconoce también el layout local previo bajo `modelos/`. El reconocimiento solicita español mediante el campo `language=es` que `WhisperCppCommandRecognizer` envía al servidor.
 
 ## Escucha y transcripción
 
@@ -33,8 +33,10 @@ Se conservó deliberadamente la frase `"de ten la camara"` en la lista de cierre
 
 Al activarse la cámara, el asistente conserva las detecciones más recientes. Piper anuncia cada cinco segundos los nombres únicos de objetos traducidos al español; si la escena está vacía, dice que no detecta objetos. Las preguntas reconocidas mientras la cámara ya está abierta también pueden generar una respuesta inmediata.
 
-`PiperSpeechOutput` carga la voz `modelos/voces/es_ES-sharvard-medium.onnx` una vez y usa `aplay` para reproducir el WAV sintetizado. El intervalo se configura al crear `VoiceAssistant` en [`main.py`](../main.py).
+`PiperSpeechOutput` carga la voz `piper-es-voz` una vez y usa `aplay` para reproducir el WAV sintetizado. La aplicación prepara primero esa voz y la usa para anunciar descargas posteriores. Si falta y el sistema tiene `espeak-ng` o `espeak`, intenta usarlo solo como aviso de instalación; no es una dependencia obligatoria. El intervalo se configura en `config/ajustes.json`.
 
 ## Errores y límites
 
 Si Whisper no inicia o falla la captura o transcripción, el error se registra y se muestra en la terminal. Cierra la aplicación con `Ctrl+C`; el reconocedor detiene la grabación activa y el servidor local. El micrófono solo se captura mientras `v` está pulsada. La guía de la tecla está en [`clases/entrada_teclado.py`](../clases/entrada_teclado.py).
+
+La interfaz futura `IntentResolver` se puede inyectar en `VoiceAssistant`, pero aún no participa en el enrutamiento. RapidFuzz continúa como única implementación activa para no cambiar las órdenes ni su comportamiento.

@@ -2,7 +2,7 @@
 
 Esta nota resume el ciclo de cámara. El detalle modular está en [docs/camara.md](./docs/camara.md), y la guía general del proyecto está en [README.md](./README.md).
 
-El punto de entrada `main.py` usa el modelo local `modelos/yolo11n.pt`; el flujo de inferencia no necesita un servicio remoto.
+El modelo `yolo11n` se obtiene mediante `ModelManager` y, por defecto, se almacena fuera del repositorio. Durante desarrollo se mantiene compatibilidad con el archivo local anterior `modelos/yolo11n.pt`; consulta [gestión de modelos](./docs/modelos.md).
 
 La cámara solicita 3 fotogramas por segundo y la aplicación limita la frecuencia de lectura por software. El modelo hace una inferencia cada 2 segundos. La ventana conserva la última imagen anotada entre inferencias, mientras la cámara continúa capturando. El controlador de la cámara puede ignorar el FPS solicitado.
 
