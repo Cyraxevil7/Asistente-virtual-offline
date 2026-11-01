@@ -13,6 +13,7 @@ El asistente espera la tecla `v`: mantenla pulsada para grabar y suéltala para 
 - Publicación de eventos a consumidores compatibles con `DetectionListener`.
 - Serialización de eventos a diccionarios JSON.
 - Transcripción local en español, iniciada al mantener `v` y enviada al soltarla.
+- Piper interrumpe el audio en curso al pulsar `v` y permanece en pausa mientras se graba.
 - Reconocimiento tolerante a errores con RapidFuzz: umbral del 80%, confirmación de coincidencias aproximadas y aclaración de órdenes ambiguas.
 - La cámara solo se abre al reconocer una petición para ver; YOLO también se carga de forma diferida en ese momento.
 - Los modelos se descargan y verifican con SHA256 desde un manifiesto; los binarios y pesos no se versionan en Git.

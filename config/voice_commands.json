@@ -28,7 +28,12 @@
       "que detectas",
       "que tengo adelante",
       "abrir camara",
-      "iniciar camara"
+      "iniciar camara",
+      "enfrente",
+      "delante",
+      "abrir",
+      "detectas",
+      "detectar"
     ]
   },
   "close_camera": {
@@ -44,7 +49,11 @@
       "deten la camara",
       "detener la camara",
       "para la camara",
-      "desactiva la camara"
+      "desactiva la camara",
+      "apagar",
+      "cerrar",
+      "detener"
+
     ]
   }
 }

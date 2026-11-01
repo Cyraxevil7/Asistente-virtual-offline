@@ -142,6 +142,12 @@ class SpeechOutput(Protocol):
     def speak(self, text: str) -> None:
         """Reproduce la respuesta hablada."""
 
+    def pause(self) -> None:
+        """Interrumpe el audio y evita nuevas reproducciones temporalmente."""
+
+    def resume(self) -> None:
+        """Permite reproducir audio después de una pausa temporal."""
+
 
 class WhisperCppCommandRecognizer:
     """Captura audio ALSA mientras se mantiene pulsada la tecla de grabación."""
@@ -361,20 +367,68 @@ class PiperSpeechOutput:
                 f"No se encontró el reproductor de audio: {aplay_executable}"
             )
         self._executable = resolved
+        self._playback_lock = threading.Lock()
+        self._playback_process: subprocess.Popen[str] | None = None
+        self._playback_paused = False
+        self._playback_generation = 0
 
     def speak(self, text: str) -> None:
-        """Genera un WAV temporal y espera a que ALSA termine de reproducirlo."""
+        """Genera un WAV temporal y lo reproduce si la salida no está pausada."""
         if text.strip():
-            with tempfile.TemporaryDirectory(prefix="asistente-piper-") as temporary_directory:
+            with self._playback_lock:
+                if self._playback_paused:
+                    return
+                generation = self._playback_generation
+            with tempfile.TemporaryDirectory(
+                prefix="asistente-piper-"
+            ) as temporary_directory:
                 audio_path = Path(temporary_directory) / "respuesta.wav"
                 with wave.open(str(audio_path), "wb") as wav_file:
                     self._voice.synthesize_wav(text, wav_file)
-                subprocess.run(
-                    [self._executable, "-q", str(audio_path)],
-                    check=True,
-                    capture_output=True,
-                    text=True,
-                )
+                with self._playback_lock:
+                    if (
+                        self._playback_paused
+                        or generation != self._playback_generation
+                    ):
+                        return
+                    process = subprocess.Popen(
+                        [self._executable, "-q", str(audio_path)],
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        text=True,
+                    )
+                    self._playback_process = process
+                try:
+                    stdout, stderr = process.communicate()
+                    with self._playback_lock:
+                        was_interrupted = (
+                            generation != self._playback_generation
+                        )
+                    if process.returncode and not was_interrupted:
+                        raise subprocess.CalledProcessError(
+                            process.returncode,
+                            process.args,
+                            output=stdout,
+                            stderr=stderr,
+                        )
+                finally:
+                    with self._playback_lock:
+                        if self._playback_process is process:
+                            self._playback_process = None
+
+    def pause(self) -> None:
+        """Detiene el reproductor actual e invalida audio aún en síntesis."""
+        with self._playback_lock:
+            self._playback_paused = True
+            self._playback_generation += 1
+            process = self._playback_process
+        if process is not None and process.poll() is None:
+            process.terminate()
+
+    def resume(self) -> None:
+        """Reanuda la salida de voz para las respuestas posteriores."""
+        with self._playback_lock:
+            self._playback_paused = False
 
 
 class VoiceAssistant(DetectionListener):
@@ -475,9 +529,11 @@ class VoiceAssistant(DetectionListener):
             ):
                 print("[voz] Espera a que termine la transcripción anterior.", flush=True)
                 return
+            self._speech_output.pause()
             try:
                 self._recognizer.start_recording()
             except (OSError, RuntimeError, ValueError, subprocess.CalledProcessError):
+                self._speech_output.resume()
                 LOGGER.exception("No se pudo iniciar la grabación de voz.")
                 print("[voz:error] No se pudo abrir el micrófono.", flush=True)
                 return
@@ -490,6 +546,7 @@ class VoiceAssistant(DetectionListener):
             if not self._recording_active:
                 return
             self._recording_active = False
+            self._speech_output.resume()
             self._transcription_worker = threading.Thread(
                 target=self._transcribe_recording,
                 name="transcripcion-voz",

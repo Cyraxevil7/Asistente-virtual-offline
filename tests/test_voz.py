@@ -44,9 +44,17 @@ class FakeRecognizer:
 class FakeSpeechOutput:
     def __init__(self) -> None:
         self.messages: list[str] = []
+        self.paused = False
 
     def speak(self, text: str) -> None:
-        self.messages.append(text)
+        if not self.paused:
+            self.messages.append(text)
+
+    def pause(self) -> None:
+        self.paused = True
+
+    def resume(self) -> None:
+        self.paused = False
 
 
 class FakeIntentResolver:
@@ -102,6 +110,7 @@ class VoiceAssistantTests(unittest.TestCase):
             self.assistant.start()
             self.assistant.start_recording()
             self.assertTrue(self.assistant._recognizer.recording)
+            self.assertTrue(self.speech_output.paused)
             self.assistant.stop_recording()
             worker = self.assistant._transcription_worker
             self.assertIsNotNone(worker)
@@ -109,6 +118,7 @@ class VoiceAssistantTests(unittest.TestCase):
             self.assistant.stop()
 
         self.assertFalse(self.assistant._recognizer.recording)
+        self.assertFalse(self.speech_output.paused)
         self.assertIn("Grabando", output.getvalue())
         self.assertIn("prueba de transcripción", output.getvalue())
 
@@ -308,9 +318,17 @@ class VoiceAssistantTests(unittest.TestCase):
         announced = threading.Event()
 
         class RecordingSpeechOutput:
+            paused = False
+
             def speak(self, text: str) -> None:
-                if text == "Delante tienes: autobús.":
+                if not self.paused and text == "Delante tienes: autobús.":
                     announced.set()
+
+            def pause(self) -> None:
+                self.paused = True
+
+            def resume(self) -> None:
+                self.paused = False
 
         assistant = VoiceAssistant(
             FakeRecognizer(),
@@ -440,14 +458,99 @@ class PiperSpeechOutputTests(unittest.TestCase):
                     "clases.controlador_voz.shutil.which",
                     return_value="/usr/bin/aplay",
                 ),
-                patch("clases.controlador_voz.subprocess.run") as run,
+                patch("clases.controlador_voz.subprocess.Popen") as popen,
             ):
+                player = popen.return_value
+                player.communicate.return_value = ("", "")
+                player.returncode = 0
                 output = PiperSpeechOutput(model_path)
                 output.speak("Delante tienes: autobús.")
 
         load_voice.assert_called_once_with(model_path)
-        self.assertTrue(run.call_args.kwargs["check"])
-        self.assertEqual(run.call_args.args[0][:2], ["/usr/bin/aplay", "-q"])
+        self.assertEqual(popen.call_args.args[0][:2], ["/usr/bin/aplay", "-q"])
+        self.assertEqual(popen.call_args.kwargs["stdout"], -1)
+        self.assertEqual(popen.call_args.kwargs["stderr"], -1)
+
+    def test_pause_terminates_current_audio_and_resume_allows_playback(self) -> None:
+        from piper import PiperVoice
+
+        playback_started = threading.Event()
+        finish_playback = threading.Event()
+        playback_errors: list[Exception] = []
+        players = []
+
+        def write_test_wav(_: str, wav_file: wave.Wave_write) -> None:
+            wav_file.setnchannels(1)
+            wav_file.setsampwidth(2)
+            wav_file.setframerate(22050)
+            wav_file.writeframes(b"\0\0")
+
+        class FakePlayer:
+            def __init__(self, args: list[str]) -> None:
+                self.args = args
+                self.returncode: int | None = None
+                self.terminated = False
+
+            def poll(self) -> int | None:
+                return self.returncode
+
+            def terminate(self) -> None:
+                self.terminated = True
+                self.returncode = -15
+
+            def communicate(self) -> tuple[str, str]:
+                if len(players) == 1:
+                    playback_started.set()
+                    finish_playback.wait(timeout=1)
+                self.returncode = self.returncode or 0
+                return "", ""
+
+        def create_player(args: list[str], **_: object) -> FakePlayer:
+            player = FakePlayer(args)
+            players.append(player)
+            return player
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            model_path = Path(temporary_directory) / "spanish.onnx"
+            model_path.write_bytes(b"test voice")
+            with (
+                patch.object(
+                    PiperVoice,
+                    "load",
+                    return_value=SimpleNamespace(synthesize_wav=write_test_wav),
+                ),
+                patch(
+                    "clases.controlador_voz.shutil.which",
+                    return_value="/usr/bin/aplay",
+                ),
+                patch(
+                    "clases.controlador_voz.subprocess.Popen",
+                    side_effect=create_player,
+                ) as popen,
+            ):
+                output = PiperSpeechOutput(model_path)
+
+                def speak_during_playback() -> None:
+                    try:
+                        output.speak("Audio que se interrumpe.")
+                    except Exception as error:
+                        playback_errors.append(error)
+
+                playback = threading.Thread(target=speak_during_playback)
+                playback.start()
+                self.assertTrue(playback_started.wait(timeout=1))
+                output.pause()
+                finish_playback.set()
+                playback.join(timeout=1)
+                output.speak("No debe sonar durante la grabación.")
+                output.resume()
+                output.speak("La salida se reanudó.")
+
+        self.assertFalse(playback.is_alive())
+        self.assertEqual(playback_errors, [])
+        self.assertEqual(popen.call_count, 2)
+        self.assertTrue(players[0].terminated)
+        self.assertEqual(players[1].returncode, 0)
 
 
 if __name__ == "__main__":

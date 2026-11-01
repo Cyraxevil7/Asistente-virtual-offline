@@ -12,6 +12,8 @@ El modelo se selecciona mediante `whisper_model_id` en `config/ajustes.json` (po
 
 `PushToTalkKeyboard` recibe eventos globales de pulsación y liberación usando `pynput`; protege contra repeticiones de tecla para que cada pulsación inicie una sola grabación. `VoiceAssistant` imprime la transcripción con hora local y procesa la orden solo después de que Whisper termine. La captura no tiene un límite temporal fijo.
 
+Al pulsar `v`, `VoiceAssistant` pausa `PiperSpeechOutput` antes de abrir el micrófono: termina el reproductor activo e invalida cualquier audio que aún se estuviera sintetizando. Mientras se mantiene la tecla no se inicia otra reproducción. Al soltarla, la salida de voz se reanuda y Whisper transcribe la grabación.
+
 La escucha global requiere una sesión gráfica compatible con X11. En sesiones Wayland, el sistema puede impedir que `pynput` reciba teclas globales; inicia una sesión X11 si la tecla no es detectada.
 
 ## Órdenes y tolerancia a errores
