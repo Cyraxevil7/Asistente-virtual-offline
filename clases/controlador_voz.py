@@ -432,7 +432,7 @@ class PiperSpeechOutput:
 
 
 class VoiceAssistant(DetectionListener):
-    """Imprime transcripciones y controla cámara mediante frases configurables."""
+    """Enruta transcripciones a órdenes de cámara y del sistema."""
 
     def __init__(
         self,
@@ -444,11 +444,15 @@ class VoiceAssistant(DetectionListener):
         command_handlers: Mapping[str, Callable[[], None]] | None = None,
         command_matcher: CommandMatcher | None = None,
         intent_resolver: IntentResolver | None = None,
+        system_command_handler: Callable[[str], bool] | None = None,
+        system_command_ids: frozenset[str] = frozenset(),
     ) -> None:
-        """Configura el matcher actual y conserva un resolvedor futuro opcional.
+        """Inyecta el matcher de cámara y los componentes opcionales del sistema.
 
-        El resolvedor inyectado no altera el enrutamiento existente: las órdenes
-        siguen siendo procesadas por CommandMatcher hasta implementar esa etapa.
+        Las órdenes de cámara conservan CommandMatcher. El manejador de sistema
+        recibe primero cada transcripción y decide si le corresponde procesarla.
+        Los identificadores gestionados por esa capa no necesitan un handler
+        directo en VoiceAssistant.
         """
         if announcement_interval <= 0:
             raise ValueError("El intervalo de anuncios debe ser mayor que cero.")
@@ -457,6 +461,25 @@ class VoiceAssistant(DetectionListener):
             similarity_threshold=COMMAND_SIMILARITY_THRESHOLD,
         )
         self._intent_resolver = intent_resolver
+        self._system_command_handler = system_command_handler
+        parameterized_ids = getattr(
+            self._command_matcher, "parameterized_command_ids", frozenset()
+        )
+        self._system_command_ids = (
+            system_command_ids
+            or parameterized_ids
+        )
+        unknown_system_ids = (
+            self._system_command_ids - self._command_matcher.command_ids
+        )
+        if unknown_system_ids:
+            raise ValueError(
+                "Hay identificadores de órdenes del sistema que no existen "
+                f"en la configuración: {sorted(unknown_system_ids)}"
+            )
+        self._routed_command_ids = (
+            self._command_matcher.command_ids - self._system_command_ids
+        )
         self._recognizer = recognizer
         self._speech_output = speech_output
         self._on_camera_command = on_camera_command
@@ -469,7 +492,8 @@ class VoiceAssistant(DetectionListener):
                 CLOSE_CAMERA_INTENT, lambda: on_camera_command("close")
             )
         missing_handlers = (
-            self._command_matcher.command_ids - self._command_handlers.keys()
+            self._routed_command_ids
+            - self._command_handlers.keys()
         )
         if missing_handlers and (
             command_handlers is not None or on_camera_command is not None
@@ -587,6 +611,11 @@ class VoiceAssistant(DetectionListener):
 
     def _handle_transcript(self, transcript: str) -> None:
         """Resuelve órdenes exactas, aproximadas, ambiguas o no reconocidas."""
+        if (
+            self._system_command_handler is not None
+            and self._system_command_handler(transcript)
+        ):
+            return
         normalized_transcript = normalize_command_text(transcript)
         pending_candidates = self._pending_command_candidates
         if pending_candidates is not None:
@@ -608,7 +637,7 @@ class VoiceAssistant(DetectionListener):
                 transcript,
                 allowed_command_ids=frozenset(
                     candidate.command_id for candidate in pending_candidates
-                ),
+                ) & self._routed_command_ids,
             )
             if clarification.candidates:
                 if len(clarification.candidates) == 1:
@@ -621,7 +650,9 @@ class VoiceAssistant(DetectionListener):
                 return
             self._pending_command_candidates = None
 
-        match = self._command_matcher.match(transcript)
+        match = self._command_matcher.match(
+            transcript, allowed_command_ids=self._routed_command_ids
+        )
         if not match.candidates:
             self._speak_unknown_command()
             return
@@ -661,7 +692,13 @@ class VoiceAssistant(DetectionListener):
         )
 
     def _speak_unknown_command(self) -> None:
-        descriptions = tuple(self._command_matcher.command_descriptions.values())
+        descriptions = tuple(
+            description
+            for command_id, description in self._command_matcher.command_descriptions.items()
+            if command_id in self._routed_command_ids
+            or self._system_command_handler is not None
+            and command_id in self._system_command_ids
+        )
         available_commands = " o ".join(descriptions)
         self._speech_output.speak(
             f"No encontré un comando parecido. Puedes probar: {available_commands}."

@@ -18,8 +18,15 @@ from clases.controlador_voz import (
     VoiceAssistant,
     WhisperCppCommandRecognizer,
 )
+from clases.catalogo_sistema import SystemEntityCatalog
+from clases.comandos_sistema import (
+    SYSTEM_OPEN_COMMAND_ID,
+    RapidFuzzIntentResolver,
+    SystemCommandHandler,
+)
 from clases.coordinador_vision import VisionCoordinator
 from clases.deteccion import DetectionEvent
+from clases.ejecutor_sistema_linux import LinuxSystemActionExecutor
 from clases.enrutador_comandos import RapidFuzzCommandMatcher
 from clases.entrada_teclado import PushToTalkKeyboard
 from clases.gestor_modelos import (
@@ -266,6 +273,20 @@ def main() -> None:
             camera_stop_event.set()
         camera_commands.put(command)
 
+    command_matcher = RapidFuzzCommandMatcher(
+        VOICE_COMMANDS_PATH,
+        similarity_threshold=settings.command_similarity_threshold,
+    )
+    system_catalog = SystemEntityCatalog()
+    system_resolver = RapidFuzzIntentResolver(
+        system_catalog, command_matcher=command_matcher
+    )
+    system_command_handler = SystemCommandHandler(
+        system_resolver,
+        LinuxSystemActionExecutor(system_catalog),
+        speech_output,
+    )
+
     voice_assistant = VoiceAssistant(
         recognizer=WhisperCppCommandRecognizer(
             model_path=manager.path(settings.whisper_model_id),
@@ -275,10 +296,10 @@ def main() -> None:
         on_camera_command=on_camera_command,
         announcement_interval=settings.announcement_interval_seconds,
         command_phrases_path=VOICE_COMMANDS_PATH,
-        command_matcher=RapidFuzzCommandMatcher(
-            VOICE_COMMANDS_PATH,
-            similarity_threshold=settings.command_similarity_threshold,
-        ),
+        command_matcher=command_matcher,
+        intent_resolver=system_resolver,
+        system_command_handler=system_command_handler.handle,
+        system_command_ids=frozenset({SYSTEM_OPEN_COMMAND_ID}),
     )
 
     push_to_talk = PushToTalkKeyboard(

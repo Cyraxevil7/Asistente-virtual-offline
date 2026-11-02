@@ -18,7 +18,7 @@ La escucha global requiere una sesión gráfica compatible con X11. En sesiones 
 
 ## Órdenes y tolerancia a errores
 
-Las órdenes configurables están en [`config/voice_commands.json`](../config/voice_commands.json). Cada identificador tiene una descripción hablada y una lista de frases. El motor `RapidFuzzCommandMatcher` implementa el contrato `CommandMatcher` y se compara con `WRatio` usando un umbral fijo del **80%**. La configuración y las frases se cargan una sola vez al construir el asistente, no en cada transcripción.
+Las órdenes configurables están en [`config/voice_commands.json`](../config/voice_commands.json). Cada identificador tiene una descripción hablada y una lista de frases. `open_resource` contiene las variantes de apertura, los términos que indican carpeta o aplicación y palabras gramaticales que deben ignorarse al resolver el objetivo. `RapidFuzzCommandMatcher` implementa el contrato `CommandMatcher`; compara frases con `WRatio` usando el umbral del **80%** configurado en `config/ajustes.json`. La configuración se carga una sola vez al construir el asistente, no en cada transcripción.
 
 La respuesta depende del resultado:
 
@@ -27,7 +27,7 @@ La respuesta depende del resultado:
 - Si varias órdenes distintas quedan a cinco puntos o menos de la mejor coincidencia, Piper enumera sus descripciones y pide elegir una.
 - Si ninguna llega a 80%, Piper indica que no encontró el comando y ofrece las acciones disponibles.
 
-Las frases se normalizan para ignorar mayúsculas, tildes y puntuación. Puedes añadir órdenes futuras creando una definición con `description` y `phrases` en el JSON, y registrando su acción mediante `command_handlers` al construir `VoiceAssistant`. Así el reconocimiento y la lógica de desambiguación no necesitan duplicarse. Las definiciones inválidas, frases repetidas entre órdenes o acciones sin handler se notifican explícitamente.
+Las frases se normalizan para ignorar mayúsculas, tildes y puntuación. Las órdenes parametrizadas, como abrir una carpeta o aplicación, se atienden mediante el manejador del sistema y no requieren una acción directa en `command_handlers`. Para extender su vocabulario, edita `open_resource` en el JSON; para incorporar otra orden independiente, crea una definición con `description` y `phrases` y registra su acción mediante `command_handlers` al construir `VoiceAssistant`. Así el reconocimiento y la lógica de desambiguación no necesitan duplicarse. Las definiciones inválidas, frases repetidas entre órdenes o acciones sin handler se notifican explícitamente.
 
 Se conservó deliberadamente la frase `"de ten la camara"` en la lista de cierre, como parche para ciertos problemas de transcripción. Para dar cualquier orden, mantén `v` mientras hablas y suéltala para procesar la frase.
 
@@ -41,4 +41,4 @@ Al activarse la cámara, el asistente conserva las detecciones más recientes. P
 
 Si Whisper no inicia o falla la captura o transcripción, el error se registra y se muestra en la terminal. Cierra la aplicación con `Ctrl+C`; el reconocedor detiene la grabación activa y el servidor local. El micrófono solo se captura mientras `v` está pulsada. La guía de la tecla está en [`clases/entrada_teclado.py`](../clases/entrada_teclado.py).
 
-La interfaz futura `IntentResolver` se puede inyectar en `VoiceAssistant`, pero aún no participa en el enrutamiento. RapidFuzz continúa como única implementación activa para no cambiar las órdenes ni su comportamiento.
+`VoiceAssistant` conserva RapidFuzz para las órdenes de cámara y envía primero cada transcripción al manejador modular del sistema. Este resuelve órdenes de apertura a carpetas autorizadas o aplicaciones `.desktop`, pregunta por objetivos incompletos y permite elegir entre alternativas. Las frases y catálogos se configuran externamente; consulta [interpretación de órdenes del sistema](./comandos_sistema.md). La ruta anterior de cámara permanece activa para las órdenes de visión.

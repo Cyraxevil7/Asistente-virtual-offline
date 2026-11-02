@@ -19,9 +19,12 @@ YOLO y OpenCV se importan dentro de la rama que procesa la orden de apertura, de
 - La tecla `q` también termina el ciclo de visión.
 - Después del cierre, la escucha de voz continúa. El evento JSON de cada detección se imprime en la terminal.
 - Al interrumpir la aplicación, el bloque `finally` detiene Whisper y los workers de voz.
+- Las transcripciones también pasan por el intérprete local de carpetas/aplicaciones; el catálogo de `.desktop` se descubre una vez y la ejecución se limita a recursos autorizados.
 
 Las tasas y los umbrales se configuran en `config/ajustes.json`; las rutas de archivos se resuelven desde `config/modelos.json` mediante `ModelManager`. La captura solicita 3 FPS, la inferencia ocurre cada dos segundos y el anuncio hablado se repite cada cinco segundos. La detección global de teclas usa `pynput` y requiere una sesión gráfica X11 compatible.
 
 Los archivos se buscan primero en el directorio de datos del usuario; `ASISTENTE_MODELS_DIR` permite seleccionar otro. Durante desarrollo se mantiene compatibilidad con los modelos ya existentes bajo `modelos/`. El servidor Whisper se busca en `vendor/whisper.cpp/build/bin/whisper-server` y después en la ruta local previa; `ASISTENTE_WHISPER_SERVER` permite indicar otra ubicación.
 
 Para instalar modelos: `python scripts/descargar_modelos.py`. Para ejecutar: `python main.py`. Construcción de `whisper-server`: `bash scripts/construir_whisper.sh`. La guía de rutas y descargas está en [gestión de modelos](./modelos.md).
+
+La extensión para abrir carpetas y aplicaciones está explicada en [interpretación de órdenes del sistema](./comandos_sistema.md).

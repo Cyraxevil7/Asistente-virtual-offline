@@ -15,6 +15,9 @@ El asistente espera la tecla `v`: mantenla pulsada para grabar y suéltala para 
 - Transcripción local en español, iniciada al mantener `v` y enviada al soltarla.
 - Piper interrumpe el audio en curso al pulsar `v` y permanece en pausa mientras se graba.
 - Reconocimiento tolerante a errores con RapidFuzz: umbral del 80%, confirmación de coincidencias aproximadas y aclaración de órdenes ambiguas.
+- Interpretación modular de órdenes para abrir carpetas y aplicaciones Linux; mantiene contexto para preguntas de seguimiento y desambiguación hablada.
+- Descubrimiento de aplicaciones mediante entradas `.desktop` y catálogos editables de carpetas, alias e intenciones; no ejecuta texto de voz como comando de terminal.
+- Acceso por voz a subcarpetas directas únicamente dentro de Imágenes, Documentos, Vídeos, Escritorio y Descargas; no se recorren carpetas recursivamente ni se siguen enlaces simbólicos.
 - La cámara solo se abre al reconocer una petición para ver; YOLO también se carga de forma diferida en ese momento.
 - Los modelos se descargan y verifican con SHA256 desde un manifiesto; los binarios y pesos no se versionan en Git.
 - Anuncios hablados con los nombres de los objetos detectados, repetidos cada cinco segundos.
@@ -31,6 +34,7 @@ El FPS configurado es una solicitud al controlador; algunas cámaras pueden igno
 - Micrófono y `arecord` (ALSA) para transcribir voz en Linux.
 - Sesión gráfica X11 para detectar globalmente `v` con `pynput`.
 - `aplay` (ALSA) para reproducir Piper en Linux.
+- `xdg-open` (paquete `xdg-utils`) para abrir carpetas; las aplicaciones se descubren con entradas `.desktop`.
 - Git, CMake y compilador C/C++ para construir `whisper-server`.
 - Cámara y micrófono no son necesarios para ejecutar las pruebas simuladas.
 
@@ -61,11 +65,11 @@ Di «cerrar cámara», «cierra la cámara», «apaga la cámara» o «detén la
 
 Los valores de cámara, intervalos y umbrales están en `config/ajustes.json`; los metadatos de modelos están en `config/modelos.json`. `whisper_model_id` permite seleccionar `whisper-base` o `whisper-tiny`; el idioma se fija en `clases/controlador_voz.py` como español (`language=es`). Para descargar la alternativa opcional: `python scripts/descargar_modelos.py --solo whisper-tiny`. `ModelManager` obtiene rutas por ID y guarda los archivos fuera del repositorio en el directorio de datos del usuario. La variable `ASISTENTE_MODELS_DIR` cambia ese directorio. En desarrollo sigue reconociendo el layout anterior local en `modelos/`. Para indicar otro `whisper-server`, define `ASISTENTE_WHISPER_SERVER`.
 
-Las frases se editan en `config/voice_commands.json`. RapidFuzz conserva el umbral predeterminado del 80% y el margen de ambigüedad de cinco puntos. El umbral visual predeterminado sigue en 0.25.
+Las frases de cámara y las variantes de «abrir carpeta/aplicación» se editan en `config/voice_commands.json`. RapidFuzz conserva el umbral predeterminado del 80% y el margen de ambigüedad de cinco puntos. El umbral visual predeterminado sigue en 0.25.
 
 ### Añadir una orden de voz
 
-Cada entrada de `config/voice_commands.json` requiere un identificador, una `description` que Piper pueda decir y una lista no vacía de `phrases` que Whisper podría transcribir. Las frases se comparan sin distinguir mayúsculas, acentos ni puntuación. Una coincidencia aproximada solicita confirmación antes de ejecutar la acción; órdenes con puntuaciones cercanas requieren que se aclare cuál se desea. Las frases asignadas a órdenes distintas no deben duplicarse.
+Cada entrada de `config/voice_commands.json` requiere un identificador, una `description` que Piper pueda decir y una lista no vacía de `phrases` que Whisper podría transcribir. Para ampliar el vocabulario de apertura, edita la entrada `open_resource`: `phrases` son los inicios de orden, `entity_type_phrases` define términos como «carpeta» o «aplicación» y `target_stop_words` elimina palabras gramaticales antes de buscar el recurso. Los límites de ambigüedad, selección, cancelación y vencimiento del diálogo se configuran aparte en `config/intenciones_sistema.json`; este archivo ya no contiene frases de apertura. Las frases se comparan sin distinguir mayúsculas, acentos ni puntuación.
 
 Para añadir una acción, registra un handler usando el mismo identificador en `command_handlers` al crear `VoiceAssistant`. Por ejemplo, conserva los handlers de cámara que proporciona `on_camera_command` y agrega el handler de la nueva orden:
 
@@ -107,11 +111,17 @@ La precisión depende del ruido, el micrófono y el tamaño del modelo. Si una o
 | `clases/contratos.py` | Protocolos de fuente de video, detector, pantalla, consumidor y matcher de órdenes. |
 | `clases/pantalla.py` | Vista previa OpenCV y detección de la tecla para salir. |
 | `clases/coordinador_vision.py` | Coordinación de captura, inferencia, publicación de eventos y limpieza de recursos. |
-| `clases/controlador_voz.py` | Captura de audio con ALSA, transcripción con un servidor persistente whisper.cpp, gestión extensible de órdenes y síntesis local Piper. |
+| `clases/controlador_voz.py` | Captura de audio con ALSA, transcripción con un servidor persistente whisper.cpp, enrutamiento de órdenes y síntesis local Piper. |
 | `clases/entrada_teclado.py` | Detecta la pulsación sostenida de `v` y activa el inicio/cierre de grabación. |
 | `clases/enrutador_comandos.py` | Normaliza y compara transcripciones con RapidFuzz; valida las definiciones de órdenes. |
+| `clases/comandos_sistema.py` | Resuelve intención, entidades, contexto, selecciones y aclaraciones de órdenes del sistema. |
+| `clases/catalogo_sistema.py` | Carga carpetas XDG autorizadas y descubre aplicaciones instaladas mediante `.desktop`. |
+| `clases/ejecutor_sistema_linux.py` | Abre recursos del catálogo sin `shell=True` ni texto de voz en comandos. |
 | `clases/gestor_modelos.py` | Valida el manifiesto, resuelve ubicaciones compatibles y descarga archivos con SHA256 y reemplazo atómico. |
-| `config/voice_commands.json` | Descripciones y frases editables para activar y cerrar la cámara por voz. |
+| `config/voice_commands.json` | Frases de cámara y apertura, variantes de órdenes, pistas de entidad y descripciones habladas. |
+| `config/intenciones_sistema.json` | Umbral de entidad, límites de ambigüedad, tiempo de contexto, cancelaciones y selecciones numéricas. |
+| `config/carpetas.json` | IDs, alias y rutas/fallbacks XDG de carpetas autorizadas. |
+| `config/aplicaciones.json` | Alias opcionales ligados a IDs de aplicaciones `.desktop`. |
 | `config/modelos.json` | IDs, rutas relativas, fuentes, tamaños y SHA256 de cada modelo. |
 | `config/ajustes.json` | FPS, intervalos, umbrales y modelo Whisper activo. |
 | `scripts/` | Descarga/verificación de modelos, hashes, compilación Whisper y medición opcional de recursos. |
@@ -128,6 +138,7 @@ Documentación modular del código:
 - [Detector YOLO](./docs/detector.md)
 - [Coordinación del ciclo de visión](./docs/coordinador.md)
 - [Contratos y eventos](./docs/contratos.md)
+- [Interpretación de órdenes del sistema](./docs/comandos_sistema.md)
 - [Gestión de modelos y herramientas](./docs/modelos.md)
 - [Medición de rendimiento](./docs/rendimiento.md)
 
@@ -203,7 +214,7 @@ git push --force --tags origin
 1. Definir un módulo de registro persistente para eventos y rotación de archivos.
 2. Incorporar una cola o bus de eventos para desacoplar consumidores lentos.
 3. Mejorar la detección de preguntas y añadir comandos adicionales de voz.
-4. Completar la integración de `IntentResolver` cuando se definan intenciones y parámetros.
+4. Añadir acciones de cierre, búsqueda y lectura mediante nuevos ejecutores explícitos.
 5. Ampliar pruebas con grabaciones de voz de prueba y manejo de errores de hardware.
 
 El resumen del ciclo de cámara está en [DETECCION_CAMARA.md](./DETECCION_CAMARA.md). La documentación modular detallada está en `docs/`.

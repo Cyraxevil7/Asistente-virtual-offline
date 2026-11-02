@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "applications": [
+    {
+      "desktop_ids": [
+        "firefox.desktop",
+        "org.mozilla.firefox.desktop",
+        "firefox-esr.desktop"
+      ],
+      "aliases": ["fire fox", "navegador web", "navegador"]
+    },
+    {
+      "desktop_ids": [
+        "chromium.desktop",
+        "chromium-browser.desktop",
+        "org.chromium.Chromium.desktop",
+        "google-chrome.desktop",
+        "brave-browser.desktop",
+        "microsoft-edge.desktop",
+        "org.gnome.Epiphany.desktop"
+      ],
+      "aliases": ["navegador web", "navegador"]
+    },
+    {
+      "desktop_ids": [
+        "org.gnome.Rhythmbox3.desktop",
+        "rhythmbox.desktop",
+        "vlc.desktop",
+        "spotify.desktop",
+        "org.videolan.VLC.desktop",
+        "strawberry.desktop",
+        "lollypop.desktop"
+      ],
+      "aliases": ["musica", "reproductor de musica", "music player"]
+    }
+  ]
+}

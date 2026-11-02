@@ -2,6 +2,7 @@
 
 import json
 import unicodedata
+from dataclasses import dataclass
 from pathlib import Path
 
 from rapidfuzz import fuzz, process
@@ -14,6 +15,14 @@ DEFAULT_COMMAND_PHRASES_PATH = (
 )
 COMMAND_SIMILARITY_THRESHOLD = 80
 COMMAND_AMBIGUITY_MARGIN = 5
+
+
+@dataclass(frozen=True, slots=True)
+class _CommandDefinition:
+    description: str
+    phrases: tuple[str, ...]
+    entity_type_phrases: dict[str, tuple[str, ...]]
+    target_stop_words: tuple[str, ...]
 
 
 class RapidFuzzCommandMatcher:
@@ -35,9 +44,9 @@ class RapidFuzzCommandMatcher:
         self._commands = _load_commands(config_path)
         self._phrase_to_command: dict[str, str] = {}
         self._descriptions: dict[str, str] = {}
-        for command_id, (description, phrases) in self._commands.items():
-            self._descriptions[command_id] = description
-            for phrase in phrases:
+        for command_id, definition in self._commands.items():
+            self._descriptions[command_id] = definition.description
+            for phrase in definition.phrases:
                 existing_command = self._phrase_to_command.get(phrase)
                 if existing_command is not None and existing_command != command_id:
                     raise ValueError(
@@ -54,6 +63,30 @@ class RapidFuzzCommandMatcher:
     def command_descriptions(self) -> dict[str, str]:
         """Descripciones legibles para presentar órdenes al usuario."""
         return self._descriptions.copy()
+
+    @property
+    def parameterized_command_ids(self) -> frozenset[str]:
+        """Órdenes cuyo objetivo se interpreta después de reconocer el prefijo."""
+        return frozenset(
+            command_id
+            for command_id, definition in self._commands.items()
+            if definition.entity_type_phrases
+        )
+
+    def command_target_settings(
+        self, command_id: str
+    ) -> tuple[dict[str, tuple[str, ...]], frozenset[str]]:
+        """Devuelve pistas de entidad y palabras de objetivo del JSON del comando."""
+        try:
+            definition = self._commands[command_id]
+        except KeyError as error:
+            raise KeyError(f"No existe el comando configurado '{command_id}'.") from error
+        entity_type_phrases = definition.entity_type_phrases
+        stop_words = set(definition.target_stop_words)
+        for phrases in entity_type_phrases.values():
+            for phrase in phrases:
+                stop_words.update(phrase.split())
+        return entity_type_phrases, frozenset(stop_words)
 
     def match(
         self,
@@ -107,6 +140,66 @@ class RapidFuzzCommandMatcher:
         )
         return CommandMatch(close_candidates)
 
+    def match_prefix(
+        self,
+        transcript: str,
+        allowed_command_ids: frozenset[str] | None = None,
+    ) -> CommandMatch:
+        """Reconoce frases de acción al inicio aunque el objetivo venga después."""
+        normalized_words = normalize_command_text(transcript).split()
+        if not normalized_words:
+            return CommandMatch(())
+
+        best_by_command: dict[str, CommandCandidate] = {}
+        for command_id, definition in self._commands.items():
+            if (
+                allowed_command_ids is not None
+                and command_id not in allowed_command_ids
+            ):
+                continue
+            for phrase in definition.phrases:
+                phrase_words = phrase.split()
+                minimum_words = max(1, len(phrase_words) - 1)
+                maximum_words = min(len(normalized_words), len(phrase_words) + 1)
+                for word_count in range(minimum_words, maximum_words + 1):
+                    prefix = " ".join(normalized_words[:word_count])
+                    similarity = fuzz.WRatio(phrase, prefix)
+                    if similarity < self._similarity_threshold:
+                        continue
+                    candidate = CommandCandidate(
+                        command_id=command_id,
+                        description=definition.description,
+                        matched_phrase=prefix,
+                        similarity=similarity,
+                    )
+                    previous = best_by_command.get(command_id)
+                    if previous is None or (
+                        candidate.similarity,
+                        len(candidate.matched_phrase.split()),
+                    ) > (
+                        previous.similarity,
+                        len(previous.matched_phrase.split()),
+                    ):
+                        best_by_command[command_id] = candidate
+
+        if not best_by_command:
+            return CommandMatch(())
+        ranked_candidates = sorted(
+            best_by_command.values(),
+            key=lambda candidate: (
+                -candidate.similarity,
+                candidate.command_id,
+            ),
+        )
+        top_similarity = ranked_candidates[0].similarity
+        return CommandMatch(
+            tuple(
+                candidate
+                for candidate in ranked_candidates
+                if top_similarity - candidate.similarity <= self._ambiguity_margin
+            )
+        )
+
 
 def normalize_command_text(text: str) -> str:
     """Normaliza mayúsculas, acentos y puntuación antes de la comparación."""
@@ -123,7 +216,7 @@ def normalize_command_text(text: str) -> str:
     return " ".join(normalized_text.split())
 
 
-def _load_commands(path: str | Path) -> dict[str, tuple[str, tuple[str, ...]]]:
+def _load_commands(path: str | Path) -> dict[str, _CommandDefinition]:
     """Carga y valida definiciones de órdenes independientes de sus acciones."""
     config_path = Path(path)
     try:
@@ -137,13 +230,17 @@ def _load_commands(path: str | Path) -> dict[str, tuple[str, tuple[str, ...]]]:
     if not isinstance(configuration, dict) or not configuration:
         raise ValueError(f"Debe haber al menos una orden configurada: {config_path}")
 
-    commands: dict[str, tuple[str, tuple[str, ...]]] = {}
+    commands: dict[str, _CommandDefinition] = {}
     for command_id, definition in configuration.items():
         if not isinstance(command_id, str) or not command_id.strip():
             raise ValueError(f"Hay un identificador de orden inválido: {config_path}")
-        if not isinstance(definition, dict) or set(definition) != {
+        if not isinstance(definition, dict) or not {"description", "phrases"} <= set(
+            definition
+        ) or not set(definition) <= {
             "description",
             "phrases",
+            "entity_type_phrases",
+            "target_stop_words",
         }:
             raise ValueError(
                 f"'{command_id}' debe contener 'description' y 'phrases': {config_path}"
@@ -169,5 +266,43 @@ def _load_commands(path: str | Path) -> dict[str, tuple[str, tuple[str, ...]]]:
             raise ValueError(
                 f"Las frases de '{command_id}' deben contener caracteres válidos."
             )
-        commands[command_id] = (description.strip(), normalized_phrases)
+        entity_type_phrases = definition.get("entity_type_phrases", {})
+        if (
+            not isinstance(entity_type_phrases, dict)
+            or any(
+                entity_type not in {"folder", "application"}
+                or not isinstance(type_phrases, list)
+                or any(
+                    not isinstance(type_phrase, str) or not type_phrase.strip()
+                    for type_phrase in type_phrases
+                )
+                for entity_type, type_phrases in entity_type_phrases.items()
+            )
+        ):
+            raise ValueError(f"'entity_type_phrases' inválido para '{command_id}'.")
+        target_stop_words = definition.get("target_stop_words", [])
+        if (
+            not isinstance(target_stop_words, list)
+            or any(
+                not isinstance(word, str)
+                or not word.strip()
+                or len(normalize_command_text(word).split()) != 1
+                for word in target_stop_words
+            )
+        ):
+            raise ValueError(f"'target_stop_words' inválido para '{command_id}'.")
+        commands[command_id] = _CommandDefinition(
+            description=description.strip(),
+            phrases=normalized_phrases,
+            entity_type_phrases={
+                entity_type: tuple(
+                    normalize_command_text(type_phrase)
+                    for type_phrase in type_phrases
+                )
+                for entity_type, type_phrases in entity_type_phrases.items()
+            },
+            target_stop_words=tuple(
+                normalize_command_text(word) for word in target_stop_words
+            ),
+        )
     return commands

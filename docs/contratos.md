@@ -7,11 +7,13 @@ Los protocolos de [`clases/contratos.py`](../clases/contratos.py) permiten susti
 - `Display`: muestra fotogramas y comunica cuándo debe cerrarse.
 - `DetectionListener`: recibe eventos mediante `on_detection(event)`.
 - `CommandMatcher`: asocia una transcripción con cero o más candidatas disponibles.
-- `IntentResolver`: contrato futuro para convertir texto libre en una intención, parámetros y confianza.
+- `IntentResolver`: convierte texto libre en intención, parámetros y resultado de resolución.
 
 `CommandCandidate` contiene el identificador de la orden, su descripción hablada, la frase configurada coincidente y el puntaje de similitud. `CommandMatch` agrupa las candidatas más relevantes para que el controlador de voz pueda ejecutar una coincidencia exacta, solicitar confirmación o pedir aclaración. La implementación predeterminada usa [`RapidFuzzCommandMatcher`](../clases/enrutador_comandos.py); puede sustituirse mediante el parámetro `command_matcher` de `VoiceAssistant`.
 
-`IntentResult` contiene `intent_id`, `parameters` y `confidence`. `VoiceAssistant` acepta un `intent_resolver` opcional para preparar una implementación futura; todavía no lo consulta, así que el enrutamiento y el comportamiento predeterminados siguen siendo RapidFuzz con las mismas frases y el mismo umbral.
+`IntentResult` contiene la intención, parámetros, tipo e ID de entidad, candidatas, estado de interpretación y motivo de aclaración. `confidence` conserva la puntuación RapidFuzz de 0 a 100; no es una probabilidad. `IntentCandidate` representa cada recurso disponible o no disponible con su tipo, ID, nombre y puntuación.
+
+`VoiceAssistant` conserva el `CommandMatcher` actual para las órdenes de cámara e inyecta un manejador opcional para órdenes del sistema. `RapidFuzzIntentResolver` y `SystemCommandHandler` usan esos contratos para resolver la intención de apertura y mantener el diálogo sin acoplar la detección visual al sistema operativo. Consulta [interpretación de órdenes del sistema](./comandos_sistema.md) para el flujo, los catálogos y los límites de seguridad.
 
 ## Datos de detección
 

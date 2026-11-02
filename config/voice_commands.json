@@ -29,9 +29,9 @@
       "que tengo adelante",
       "abrir camara",
       "iniciar camara",
+      "abrir",
       "enfrente",
       "delante",
-      "abrir",
       "detectas",
       "detectar"
     ]
@@ -53,7 +53,84 @@
       "apagar",
       "cerrar",
       "detener"
-
+    ]
+  },
+  "open_resource": {
+    "description": "abrir una carpeta o aplicación",
+    "phrases": [
+      "abre",
+      "abreme",
+      "ejecuta",
+      "ejecutar",
+      "inicia",
+      "iniciar",
+      "lanza",
+      "lanzar",
+      "quiero abrir",
+      "quisiera abrir",
+      "me gustaria abrir",
+      "puedes abrir",
+      "podrias abrir",
+      "por favor abre",
+      "por favor abre la carpeta",
+      "por favor abre la aplicacion",
+      "quiero iniciar",
+      "quiero ejecutar",
+      "abrir carpeta",
+      "abrir la carpeta",
+      "abre la carpeta",
+      "abre carpeta",
+      "abrir aplicacion",
+      "abrir la aplicacion",
+      "abre la aplicacion",
+      "abre aplicacion",
+      "ejecuta aplicacion",
+      "ejecuta la aplicacion",
+      "inicia aplicacion",
+      "inicia la aplicacion",
+      "quiero abrir una carpeta",
+      "quiero abrir una aplicacion",
+      "quiero abrir la aplicacion"
+    ],
+    "entity_type_phrases": {
+      "folder": [
+        "carpeta",
+        "directorio",
+        "folder"
+      ],
+      "application": [
+        "aplicacion",
+        "programa",
+        "app"
+      ]
+    },
+    "target_stop_words": [
+      "quiero",
+      "quisiera",
+      "me",
+      "gustaria",
+      "puedes",
+      "podrias",
+      "por",
+      "favor",
+      "la",
+      "el",
+      "los",
+      "las",
+      "un",
+      "una",
+      "unos",
+      "unas",
+      "de",
+      "del",
+      "al",
+      "a",
+      "mi",
+      "mis",
+      "que",
+      "sea",
+      "es",
+      "esta"
     ]
   }
 }

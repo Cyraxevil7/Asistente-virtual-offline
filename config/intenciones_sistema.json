@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "entity_similarity_threshold": 84,
+  "ambiguity_margin": 5,
+  "max_candidates": 3,
+  "context_timeout_seconds": 30,
+  "cancel_phrases": [
+    "cancelar",
+    "cancela",
+    "anular",
+    "olvidalo",
+    "dejalo",
+    "no importa"
+  ],
+  "selection_phrases": {
+    "1": [
+      "primera",
+      "primero",
+      "la primera",
+      "el primero",
+      "primera opcion",
+      "primero opcion",
+      "opcion uno",
+      "opcion una",
+      "uno",
+      "una"
+    ],
+    "2": [
+      "segunda",
+      "segundo",
+      "la segunda",
+      "el segundo",
+      "segunda opcion",
+      "segundo opcion",
+      "opcion dos",
+      "dos"
+    ],
+    "3": [
+      "tercera",
+      "tercero",
+      "la tercera",
+      "el tercero",
+      "tercera opcion",
+      "tercero opcion",
+      "opcion tres",
+      "tres"
+    ]
+  }
+}

@@ -70,12 +70,29 @@ class CommandMatcher(Protocol):
 
 
 @dataclass(frozen=True, slots=True)
+class IntentCandidate:
+    """Recurso autorizado que coincide con el objetivo expresado por el usuario."""
+
+    entity_id: str
+    entity_type: str
+    label: str
+    similarity: float
+    available: bool = True
+
+
+@dataclass(frozen=True, slots=True)
 class IntentResult:
-    """Resultado futuro de resolver una intención y sus parámetros."""
+    """Resultado de intención con objetivo, alternativas y estado conversacional."""
 
     intent_id: str
     parameters: Mapping[str, object]
     confidence: float
+    entity_type: str | None = None
+    entity_id: str | None = None
+    candidates: tuple[IntentCandidate, ...] = ()
+    status: str = "complete"
+    state: str = "esperando_orden"
+    clarification_reason: str | None = None
 
 
 class IntentResolver(Protocol):

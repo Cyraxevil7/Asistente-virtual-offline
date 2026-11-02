@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "folders": [
+    {
+      "id": "home",
+      "name": "Inicio",
+      "path": "~",
+      "aliases": ["inicio", "carpeta personal", "home", "personal"]
+    },
+    {
+      "id": "desktop",
+      "name": "Escritorio",
+      "xdg_user_dir": "DESKTOP",
+      "fallback_path": "Desktop",
+      "aliases": ["escritorio", "desktop"]
+    },
+    {
+      "id": "documents",
+      "name": "Documentos",
+      "xdg_user_dir": "DOCUMENTS",
+      "fallback_path": "Documents",
+      "aliases": ["documentos", "documento", "documents", "documents folder"]
+    },
+    {
+      "id": "downloads",
+      "name": "Descargas",
+      "xdg_user_dir": "DOWNLOAD",
+      "fallback_path": "Downloads",
+      "aliases": ["descargas", "descarga", "downloads", "download"]
+    },
+    {
+      "id": "music",
+      "name": "Música",
+      "xdg_user_dir": "MUSIC",
+      "fallback_path": "Music",
+      "aliases": ["musica", "music"]
+    },
+    {
+      "id": "pictures",
+      "name": "Imágenes",
+      "xdg_user_dir": "PICTURES",
+      "fallback_path": "Pictures",
+      "aliases": ["imagenes", "fotos", "pictures", "images"]
+    },
+    {
+      "id": "videos",
+      "name": "Vídeos",
+      "xdg_user_dir": "VIDEOS",
+      "fallback_path": "Videos",
+      "aliases": ["videos", "video"]
+    },
+    {
+      "id": "mis archivos",
+      "name": "Mis Archivos",
+      "path": "~/home/yonathan/Escritorio/Mis archivos/",
+      "aliases": ["mis archivos", "my files" ]
+    }
+  ]
+}
